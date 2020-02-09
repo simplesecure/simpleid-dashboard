@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "SimpleID Dashboard",
+  "name": "Internal Dashboard for SimpleID",
   "icons": [
     {
       "src": "favicon.ico",
