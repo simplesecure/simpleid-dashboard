@@ -23,7 +23,8 @@ export default class App extends React.Component {
       payload: {}, 
       username: "", 
       password: "", 
-      show: false, 
+      show: false,
+      showUsersByApp: false,
       showNotification: false
     }
   }
@@ -33,8 +34,8 @@ export default class App extends React.Component {
     const payload = sessionStorage.getItem(PAYLOAD_DATA)
     if(payload) {
       this.setState({ payload: JSON.parse(payload), signedIn: true })
+      this.fetchPayload()
     }
-    this.fetchPayload()
   }
 
   handleSignIn = (e) => {
@@ -126,11 +127,13 @@ export default class App extends React.Component {
   }
 
   renderDashboard() {
-    const { payload, show, showNotification } = this.state
+    const { payload, show, showNotification, showUsersByApp } = this.state
     const { data } = payload
+    const { orgData, activeProjects, projectData, campaignCount, templateCount, notificationsCount, segmentsCount } = data
+    const { totalUsers, activeProjectData } = projectData
     const orgCount = typeof data.orgs === 'object' ? data.orgs.count : data.orgs
     const orgEmails = typeof data.orgs === 'object' ? data.orgs.orgs.map(a => {return a.email}) : []
-    console.log(showNotification)
+    const projects = activeProjectData ? activeProjectData : []
     return (
       <div>
         <div className="notification">
@@ -160,7 +163,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Total Projects Created</Card.Title>
                   <Card.Text>
-                    <h3>{data.activeProjects ? data.activeProjects.length : 0}</h3>
+                    <h3>{activeProjects ? activeProjects.length : 0}</h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -170,7 +173,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Total End Users</Card.Title>
                   <Card.Text>
-                    <h3>{data.endUsers ? data.endUsers.length : 0}</h3>
+                    <h3><button onClick={() => this.setState({ showUsersByApp: true})} className="a-button">{totalUsers ? totalUsers.length : 0}</button></h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -180,7 +183,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Segments Created</Card.Title>
                   <Card.Text>
-                    <h3>{data.segmentsCount}</h3>
+                    <h3>{segmentsCount ? segmentsCount : 0}</h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -190,7 +193,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Notifications Created</Card.Title>
                   <Card.Text>
-                    <h3>{data.notificationsCount}</h3>
+                    <h3>{notificationsCount ? notificationsCount : 0}</h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -200,7 +203,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Email Templates</Card.Title>
                   <Card.Text>
-                    <h3>{data.templateCount}</h3>
+                    <h3>{templateCount ? templateCount : 0}</h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -210,7 +213,7 @@ export default class App extends React.Component {
                 <Card.Body>
                   <Card.Title>Campaigns Sents</Card.Title>
                   <Card.Text>
-                    <h3>{data.campaignCount}</h3>
+                    <h3>{campaignCount ? campaignCount : 0}</h3>
                   </Card.Text>
                 </Card.Body>
               </Card>
@@ -243,6 +246,48 @@ export default class App extends React.Component {
             </Modal.Body>
             <Modal.Footer>
               <Button variant="primary" onClick={() => this.setState({ show: false})}>
+                Done
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+
+          <Modal show={showUsersByApp} onHide={() => this.setState({ showUsersByApp: false})}>
+            <Modal.Header closeButton>
+              <Modal.Title>Modal heading</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+            <Table responsive>
+              <thead>
+                <tr>
+                  <th>App Name</th> 
+                  <th>Total Users</th>                  
+                </tr>
+              </thead>
+              <tbody>
+              {
+                
+                projects.map(proj => {
+                  let appName
+                  for (const org of orgData) {
+                    const appKey = Object.keys(org.apps)                    
+                    if(appKey[0] === proj.app_id) {
+                      appName = org.apps[proj.app_id].project_name
+                    }
+                  }
+                  return (
+                    <tr key={proj.app_id}>
+                      <td>{appName}</td>
+                      <td>{Object.keys(proj.analytics).length}</td>
+                    </tr>
+                  )
+                })
+              }
+              </tbody>
+            </Table>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="primary" onClick={() => this.setState({ showUsersByApp: false})}>
                 Done
               </Button>
             </Modal.Footer>
