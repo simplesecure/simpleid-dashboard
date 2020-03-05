@@ -222,7 +222,7 @@ export default class App extends React.Component {
 
           <Modal show={show} onHide={() => this.setState({ show: false})}>
             <Modal.Header closeButton>
-              <Modal.Title>Modal heading</Modal.Title>
+              <Modal.Title>Customers</Modal.Title>
             </Modal.Header>
             <Modal.Body>
             <Table responsive>
@@ -254,7 +254,7 @@ export default class App extends React.Component {
 
           <Modal show={showUsersByApp} onHide={() => this.setState({ showUsersByApp: false})}>
             <Modal.Header closeButton>
-              <Modal.Title>Modal heading</Modal.Title>
+              <Modal.Title>Users by App</Modal.Title>
             </Modal.Header>
             <Modal.Body>
             <Table responsive>
