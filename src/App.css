@@ -22,3 +22,17 @@
   color: red;
   margin: 8px;
 }
+
+.a-button {
+  background: none;
+  border: none;
+  color: #0000EE;
+}
+
+.show-notification {
+  display: block;
+}
+
+.hide-notification {
+  display: none;
+}
