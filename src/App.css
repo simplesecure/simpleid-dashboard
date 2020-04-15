@@ -36,3 +36,21 @@
 .hide-notification {
   display: none;
 }
+
+.modal {
+  overflow: scroll!important;
+}
+
+.card-margin {
+  margin-bottom: 10px;
+}
+
+.chart {
+  margin-bottom: 20px;
+  margin-top: 20px;
+}
+
+.login {
+  max-width: 45%!important;
+  margin: auto!important;
+}
