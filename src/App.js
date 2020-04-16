@@ -1,418 +1,536 @@
-import React from 'react';
+import React from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "shards-ui/dist/css/shards.min.css"
-import './App.css';
-import { Doughnut } from 'react-chartjs-2';
-import { Button, Card, CardBody, CardTitle, CardSubtitle, Modal, ModalFooter, Form, FormGroup, FormInput, ModalBody, ModalHeader, Container, Alert } from 'shards-react';
-const URL = process.env.NODE_ENV === 'production' ? 'https://ancient-oasis-92375.herokuapp.com' : 'http://localhost:3000'
-const axios = require('axios')
-const PAYLOAD_DATA = 'data_payload'
+import "shards-ui/dist/css/shards.min.css";
+import "./App.css";
+// import { Doughnut } from "react-chartjs-2";
+import {
+  Button,
+  Card,
+  CardBody,
+  CardTitle,
+  CardSubtitle,
+  Modal,
+  ModalFooter,
+  Form,
+  FormGroup,
+  FormInput,
+  ModalBody,
+  ModalHeader,
+  Container,
+  Alert,
+} from "shards-react";
+const URL =
+  process.env.NODE_ENV === "production"
+    ? "https://dashboard.simpleid.xyz"
+    : "http://localhost:3000";
+const axios = require("axios");
+const PAYLOAD_DATA = "data_payload";
 
 export default class App extends React.Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
-      signedIn: false, 
-      payload: {}, 
-      username: "", 
-      password: "", 
+      signedIn: false,
+      totalOrgs: 0,
+      username: "",
+      password: "",
       show: false,
       showUsersByApp: false,
-      showNotification: false, 
-      showProjectsWithEmails: false
-    }
+      showNotification: false,
+      showProjectsWithEmails: false,
+      projects: [], 
+      totalEndUsers: 0, 
+      totalSegments: 0, 
+      totalNotifications: 0, 
+      totalTemplates: 0,
+      totalCampaigns: 0,
+      totalEmailsImported: 0, 
+      projectsWithEmails: [], 
+      orgList: []
+    };
   }
 
   componentDidMount() {
     //Check if there's a payload in sessionStorage
-    const payload = sessionStorage.getItem(PAYLOAD_DATA)
-    if(payload) {
-      this.setState({ payload: JSON.parse(payload), signedIn: true })
-      this.fetchPayload()
+    const payload = sessionStorage.getItem(PAYLOAD_DATA);
+    if (payload) {
+      this.setState({ signedIn: true });
     }
+    this.fetchPayload();
   }
 
   handleSignIn = (e) => {
-    e.preventDefault()
-    this.setState({ loading: true, error: "" })
-    const { username, password } = this.state
-    if(!username || !password) {
-      this.setState({ error: "Please enter a valid username or password", loading: false })
+    e.preventDefault();
+    this.setState({ loading: true, error: "" });
+    const { username, password } = this.state;
+    if (!username || !password) {
+      this.setState({
+        error: "Please enter a valid username or password",
+        loading: false,
+      });
     } else {
-      this.fetchPayload(username, password)
+      this.fetchPayload(username, password);
     }
-  }
+  };
 
   handleSignOut = () => {
-    sessionStorage.clear()
-    this.setState({ signedIn: false })
-  }
+    sessionStorage.clear();
+    this.setState({ signedIn: false });
+  };
 
   fetchPayload = async (username, password) => {
-    await this.setState({ showNotification: true })
-    const payload = sessionStorage.getItem(PAYLOAD_DATA)
-    let bearerToken = undefined
-    if(payload) {
-      const { bearer } = JSON.parse(payload)
-      if(bearer) {
-        bearerToken = bearer
-      }
+    await this.setState({ showNotification: true });
+    const payload = sessionStorage.getItem(PAYLOAD_DATA);
+    let token;
+    if (payload) {
+      const { bearer } = JSON.parse(payload);
+      token = bearer;
     }
     const config = {
-      headers: { 'Content-Type': 'application/json' }
-    }
+      headers: { "Content-Type": "application/json" },
+    };
     const body = {
-      username, 
-      password, 
-      bearer: bearerToken 
-    }
-    
+      username,
+      password,
+      bearer: token,
+    };
+
     try {
-      const data = await axios.post(`${URL}/login`, JSON.stringify(body), config);
+      const res = await axios.post(
+        `${URL}/login`,
+        JSON.stringify(body),
+        config
+      );
+      const { bearer, data } = res.data;
+      const payload = {
+        bearer,
+      };
+      
+      sessionStorage.setItem(PAYLOAD_DATA, JSON.stringify(payload));
+      const { users, projects } = data;
 
-      sessionStorage.setItem(PAYLOAD_DATA, JSON.stringify(data.data))
+      const totalEndUsers = projects
+        .map((proj) => {return proj && proj.totalUsers ? proj.totalUsers : 0}).reduce((a, b) => a + b, 0)
+      
+      const totalSegments = projects.map(proj => { return proj && proj.segments ? proj.segments.length : 0}).reduce((a, b) => a + b, 0)
+      
+      const totalNotifications = projects.map(proj => { return proj && proj.notifications ? proj.notifications.length : 0}).reduce((a, b) => a + b, 0)
 
-      this.setState({ payload: data.data, signedIn: true, loading: false, showNotification: false })
-    } catch(e) {
-      this.setState({ error: "Trouble signing in or fetching data", loading: false, username: "", password: "", showNotification: false })
+      const totalTemplates = projects.map(proj => { return proj && proj.templates ? proj.templates.length : 0}).reduce((a, b) => a + b, 0)
+      
+      const totalEmailsImported = projects.map(proj => { return proj && proj.emailsImported }).reduce((a, b) => a + b, 0)
+
+      const totalCampaigns = projects.map(proj => { return proj && proj.campaigns ? proj.campaigns.length : 0}).reduce((a, b) => a + b, 0)
+      
+      const projectsWithEmails = projects.filter(proj => proj.emailsImported);
+
+      this.setState({
+        totalOrgs: users.count ? users.count : 0,
+        totalEndUsers,
+        totalSegments,
+        totalNotifications,
+        totalTemplates,
+        totalEmailsImported,
+        projectsWithEmails,
+        totalCampaigns,
+        orgList: users.orgs ? users.orgs : [],
+        signedIn: true,
+        loading: false,
+        projects,
+        showNotification: false,
+      });
+    } catch (e) {
+      console.log(e);
+      this.setState({
+        error: "Trouble signing in or fetching data",
+        loading: false,
+        username: "",
+        password: "",
+        showNotification: false,
+      });
     }
-  }
+  };
 
   renderLoading() {
-    return (
-      <div className="loading-page">
-        Loading...
-      </div>
-    )
+    return <div className="loading-page">Loading...</div>;
   }
 
   renderSignIn() {
-    const { error } = this.state
+    const { error } = this.state;
     return (
-      <div className='login'>
+      <div className="login">
+        <Card className="login-card">
+          <CardBody>
+            <CardTitle>SimpleID Dashboard</CardTitle>
+            <CardSubtitle className="mb-2 text-muted">Sign In</CardSubtitle>
+            <Form onSubmit={this.handleSignIn}>
+              <FormGroup controlId="formBasicEmail">
+                <label>Username</label>
+                <FormInput
+                  onChange={(e) => this.setState({ username: e.target.value })}
+                  type="text"
+                  placeholder="Enter username"
+                />
+              </FormGroup>
 
-          <Card className='login-card'>
-            <CardBody>
-              <CardTitle>SimpleID Dashboard</CardTitle>
-              <CardSubtitle className="mb-2 text-muted">Sign In</CardSubtitle>
-              <Form onSubmit={this.handleSignIn}>
-                <FormGroup controlId="formBasicEmail">
-                  <label>Username</label>
-                  <FormInput onChange={(e) => this.setState({ username: e.target.value })} type="text" placeholder="Enter username" />
-                </FormGroup>
-
-                <FormGroup controlId="formBasicPassword">
-                  <label>Password</label>
-                  <FormInput onChange={(e) => this.setState({ password: e.target.value })} type="password" placeholder="Password" />
-                </FormGroup>
-                <Button type="submit" variant="primary" >
-                  Sign In
-                </Button>
-              </Form>
-              <p className="error">{error}</p>
-            </CardBody>
-          </Card>
-
+              <FormGroup controlId="formBasicPassword">
+                <label>Password</label>
+                <FormInput
+                  onChange={(e) => this.setState({ password: e.target.value })}
+                  type="password"
+                  placeholder="Password"
+                />
+              </FormGroup>
+              <Button type="submit" variant="primary">
+                Sign In
+              </Button>
+            </Form>
+            <p className="error">{error}</p>
+          </CardBody>
+        </Card>
       </div>
-    )
+    );
   }
 
   renderDashboard() {
-    const { payload, show, showNotification, showUsersByApp, showProjectsWithEmails } = this.state
-    const { data } = payload
-    const { orgData, activeProjects, projectData, campaignCount, templateCount, notificationsCount, segmentsCount, emailsImported, emailsByProject } = data
-    const { totalUsers, activeProjectData } = projectData
-    const orgCount = typeof data.orgs === 'object' ? data.orgs.count : data.orgs
-    const orgEmails = typeof data.orgs === 'object' ? data.orgs.orgs.map(a => {return a.email}) : []
-    const projects = activeProjectData ? activeProjectData : []
-    const projectLabels = projects.filter(p => Object.keys(p.analytics).length > 100).map(proj => {
-      let appName
-      for (const org of orgData) {
-        const appKey = Object.keys(org.apps)                    
-        if(appKey[0] === proj.app_id) {
-          appName = org.apps[proj.app_id].project_name
-        }
-      }
-      
-      return appName
-    })
+    const {
+      projects,
+      show,
+      showNotification,
+      showUsersByApp,
+      showProjectsWithEmails,
+      totalEndUsers,
+      totalSegments,
+      totalNotifications,
+      totalTemplates,
+      totalEmailsImported,
+      projectsWithEmails,
+      totalCampaigns,
+      orgList,
+      totalOrgs
+    } = this.state;
+    // const orgEmails =
+    //   typeof data.orgs === "object"
+    //     ? data.orgs.orgs.map((a) => {
+    //         return a.email;
+    //       })
+    //     : [];
 
-    const projectChartData = projects.filter(p => Object.keys(p.analytics).length > 100).map(proj => {
-      return Object.keys(proj.analytics).length
-    })
+    // const projectLabels = projects
+    //   .filter((p) => Object.keys(p.analytics).length > 100)
+    //   .map((proj) => {
+    //     let appName;
+    //     for (const org of orgData) {
+    //       const appKey = Object.keys(org.apps);
+    //       if (appKey[0] === proj.app_id) {
+    //         appName = org.apps[proj.app_id].project_name;
+    //       }
+    //     }
 
-    const projectChartColors = [];
-    for(const chartData of projectChartData) {
-      const color = '#'+(Math.random()*0xFFFFFF<<0).toString(16);
-      projectChartColors.push(color);
-    }
+    //     return appName;
+    //   });
 
-    const usersByApp = {
-      labels: projectLabels,
-      datasets: [{
-        data: projectChartData,
-        backgroundColor: projectChartColors,
-        hoverBackgroundColor: projectChartColors
-      }]
-    }
+    // const projectChartData = projects
+    //   .filter((p) => Object.keys(p.analytics).length > 100)
+    //   .map((proj) => {
+    //     return Object.keys(proj.analytics).length;
+    //   });
+
+    // const projectChartColors = [];
+    // for (const chartData of projectChartData) {
+    //   const color = "#" + ((Math.random() * 0xffffff) << 0).toString(16);
+    //   projectChartColors.push(color);
+    // }
+
+    // const usersByApp = {
+    //   labels: projectLabels,
+    //   datasets: [
+    //     {
+    //       data: projectChartData,
+    //       backgroundColor: projectChartColors,
+    //       hoverBackgroundColor: projectChartColors,
+    //     },
+    //   ],
+    // };
     return (
       <div>
         <div className="notification">
-          <Alert className={showNotification ? "show-notification" : "hide-notification"} variant='info'>
+          <Alert
+            className={
+              showNotification ? "show-notification" : "hide-notification"
+            }
+            variant="info"
+          >
             Fetching data...
           </Alert>
         </div>
         <div className="sign-out-btn">
-          <Button onClick={this.handleSignOut} variant='primary'>Sign Out</Button>
+          <Button onClick={this.handleSignOut} variant="primary">
+            Sign Out
+          </Button>
         </div>
         <Container>
           <h1 className="heading text-center">SimpleID Dashboard</h1>
-          <p style={{cursor: "pointer"}} onClick={this.fetchPayload}>Refresh Data</p>
-          <div className='row'>            
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
+          <p style={{ cursor: "pointer" }} onClick={this.fetchPayload}>
+            Refresh Data
+          </p>
+          <div className="row">
+            <div className="col col-lg-4 col-md-4 col-sm-6">
               <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Total Accounts</CardTitle>
-                  <p>
-                    <h3><button onClick={() => this.setState({ show: true})} className="a-button">{orgCount}</button></h3>
-                  </p>
-                </CardBody>
-              </Card>
-              </div>
-            </div >
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Total Projects Created</CardTitle>
-                  <p>
-                    <h3>{activeProjects ? activeProjects.length : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Total Accounts</CardTitle>
+                    <p>
+                      <h3>
+                        <button
+                          onClick={() => this.setState({ show: true })}
+                          className="a-button"
+                        >
+                          {totalOrgs}
+                        </button>
+                      </h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Total End Users</CardTitle>
-                  <p>
-                    <h3><button onClick={() => this.setState({ showUsersByApp: true})} className="a-button">{totalUsers ? totalUsers.length : 0}</button></h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Total Projects Created</CardTitle>
+                    <p>
+                      <h3>{projects ? projects.length : 0}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Segments Created</CardTitle>
-                  <p>
-                    <h3>{segmentsCount ? segmentsCount : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Total End Users</CardTitle>
+                    <p>
+                      <h3>
+                        <button
+                          onClick={() =>
+                            this.setState({ showUsersByApp: true })
+                          }
+                          className="a-button"
+                        >
+                          {totalEndUsers}
+                        </button>
+                      </h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Notifications Created</CardTitle>
-                  <p>
-                    <h3>{notificationsCount ? notificationsCount : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Segments Created</CardTitle>
+                    <p>
+                      <h3>{totalSegments}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Email Templates</CardTitle>
-                  <p>
-                    <h3>{templateCount ? templateCount : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Notifications Created</CardTitle>
+                    <p>
+                      <h3>{totalNotifications}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Emails Imported</CardTitle>
-                  <p>
-                    <h3>{emailsImported ? emailsImported : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Email Templates</CardTitle>
+                    <p>
+                      <h3>{totalTemplates}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Projects With Emails</CardTitle>
-                  <p>
-                    <h3><button onClick={() => this.setState({ showProjectsWithEmails: true })} className='a-button'>{emailsByProject ? emailsByProject.length : 0}</button></h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Emails Imported</CardTitle>
+                    <p>
+                      <h3>{totalEmailsImported}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-lg-4 col-md-4 col-sm-6'>
-            <div className="card-margin">
-              <Card small={true}>
-                <CardBody>
-                  <CardTitle>Campaigns Sents</CardTitle>
-                  <p>
-                    <h3>{campaignCount ? campaignCount : 0}</h3>
-                  </p>
-                </CardBody>
-              </Card>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Projects With Emails</CardTitle>
+                    <p>
+                      <h3>
+                        <button
+                          onClick={() =>
+                            this.setState({ showProjectsWithEmails: true })
+                          }
+                          className="a-button"
+                        >
+                          {projectsWithEmails.length}
+                        </button>
+                      </h3>
+                    </p>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <div className='col col-sm-12'>
-              <div className='chart'>
+            <div className="col col-lg-4 col-md-4 col-sm-6">
+              <div className="card-margin">
+                <Card small={true}>
+                  <CardBody>
+                    <CardTitle>Campaigns Sents</CardTitle>
+                    <p>
+                      <h3>{totalCampaigns}</h3>
+                    </p>
+                  </CardBody>
+                </Card>
+              </div>
+            </div>
+            {/* <div className="col col-sm-12">
+              <div className="chart">
                 <h3 className="text-center">Apps With More Than 100 Users</h3>
                 <Doughnut width={400} data={usersByApp} />
               </div>
-            </div>
+            </div> */}
           </div>
 
-          <Modal open={show} toggle={() => this.setState({ show: false})}>
-            <ModalHeader>
-              Customers
-            </ModalHeader>
+          <Modal open={show} toggle={() => this.setState({ show: false })}>
+            <ModalHeader>Customers</ModalHeader>
             <ModalBody>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Email</th>                  
-                </tr>
-              </thead>
-              <tbody>
-              {
-                orgEmails.map(email => {
-                  return (
-                    <tr key={email}>
-                      <td>{email}</td>
-                    </tr>
-                  )
-                })
-              }
-              </tbody>
-            </table>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orgList.map((org) => {
+                    return (
+                      <tr key={org.email}>
+                        <td>{org.email}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </ModalBody>
             <ModalFooter>
-              <Button variant="primary" onClick={() => this.setState({ show: false})}>
+              <Button
+                variant="primary"
+                onClick={() => this.setState({ show: false })}
+              >
                 Done
               </Button>
             </ModalFooter>
           </Modal>
 
-
-          <Modal open={showUsersByApp} toggle={() => this.setState({ showUsersByApp: false})}>
-            <ModalHeader>
-              Users by App
-            </ModalHeader>
+          <Modal
+            open={showUsersByApp}
+            toggle={() => this.setState({ showUsersByApp: false })}
+          >
+            <ModalHeader>Users by App</ModalHeader>
             <ModalBody>
-            <table className='table'>
-              <thead>
-                <tr>
-                  <th>App Name</th> 
-                  <th>Total Users</th>                  
-                </tr>
-              </thead>
-              <tbody>
-              {
-                
-                projects.map(proj => {
-                  let appName
-                  for (const org of orgData) {
-                    const appKey = Object.keys(org.apps)                    
-                    if(appKey[0] === proj.app_id) {
-                      appName = org.apps[proj.app_id].project_name
-                    }
-                  }
-                  return (
-                    <tr key={proj.app_id}>
-                      <td>{appName}</td>
-                      <td>{Object.keys(proj.analytics).length}</td>
-                    </tr>
-                  )
-                })
-              }
-              </tbody>
-            </table>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>App Name</th>
+                    <th>Total Users</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((proj) => {
+                    return (
+                      <tr key={proj.id}>
+                        <td>{proj.name}</td>
+                        <td>{proj.totalUsers}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </ModalBody>
             <ModalFooter>
-              <Button variant="primary" onClick={() => this.setState({ showUsersByApp: false})}>
+              <Button
+                variant="primary"
+                onClick={() => this.setState({ showUsersByApp: false })}
+              >
                 Done
               </Button>
             </ModalFooter>
           </Modal>
 
-          <Modal open={showProjectsWithEmails} toggle={() => this.setState({ showProjectsWithEmails: false})}>
-            <ModalHeader>
-              Emails Imported by Project
-            </ModalHeader>
+          <Modal
+            open={showProjectsWithEmails}
+            toggle={() => this.setState({ showProjectsWithEmails: false })}
+          >
+            <ModalHeader>Emails Imported by Project</ModalHeader>
             <ModalBody>
-            <table className='table'>
-              <thead>
-                <tr>
-                  <th>App Name</th> 
-                  <th>Emails Imported</th>                  
-                </tr>
-              </thead>
-              <tbody>
-              {
-                
-                emailsByProject.map(proj => {
-                  
-                  return (
-                    <tr key={proj.appName}>
-                      <td>{proj.appName}</td>
-                      <td>{proj.emailsImported}</td>
-                    </tr>
-                  )
-                })
-              }
-              </tbody>
-            </table>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>App Name</th>
+                    <th>Emails Imported</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectsWithEmails.map((proj) => {
+                    return (
+                      <tr key={proj.id}>
+                        <td>{proj.name}</td>
+                        <td>{proj.emailsImported}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </ModalBody>
             <ModalFooter>
-              <Button variant="primary" onClick={() => this.setState({ showProjectsWithEmails: false})}>
+              <Button
+                variant="primary"
+                onClick={() => this.setState({ showProjectsWithEmails: false })}
+              >
                 Done
               </Button>
             </ModalFooter>
           </Modal>
-
         </Container>
       </div>
-    )
+    );
   }
 
   render() {
-    const { signedIn, loading } = this.state
-    let elemContainer = undefined
-    if(loading) {
-      elemContainer = this.renderLoading()
-    } else if(signedIn) {
-      elemContainer = this.renderDashboard()
+    const { signedIn, loading } = this.state;
+    let elemContainer = undefined;
+    if (loading) {
+      elemContainer = this.renderLoading();
+    } else if (signedIn) {
+      elemContainer = this.renderDashboard();
     } else {
-      elemContainer = this.renderSignIn()
+      elemContainer = this.renderSignIn();
     }
 
-    return (
-      <div className="main">
-        {elemContainer}
-      </div>
-    )
+    return <div className="main">{elemContainer}</div>;
   }
 }
