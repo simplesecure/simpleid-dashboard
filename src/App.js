@@ -38,16 +38,19 @@ export default class App extends React.Component {
       showUsersByApp: false,
       showNotification: false,
       showProjectsWithEmails: false,
-      projects: [], 
-      totalEndUsers: 0, 
-      totalSegments: 0, 
-      totalNotifications: 0, 
+      showSegmentsByApp: false,
+      projects: [],
+      totalEndUsers: 0,
+      totalSegments: 0,
+      totalNotifications: 0,
       totalTemplates: 0,
       totalCampaigns: 0,
-      totalEmailsImported: 0, 
-      projectsWithEmails: [], 
+      totalEmailsImported: 0,
+      projectsWithEmails: [],
       orgList: []
     };
+
+    this.segmentByAppTableData = []
   }
 
   componentDidMount() {
@@ -105,24 +108,83 @@ export default class App extends React.Component {
       const payload = {
         bearer,
       };
-      
+
       sessionStorage.setItem(PAYLOAD_DATA, JSON.stringify(payload));
       const { users, projects } = data;
 
       const totalEndUsers = projects
         .map((proj) => {return proj && proj.totalUsers ? proj.totalUsers : 0}).reduce((a, b) => a + b, 0)
-      
+
       const totalSegments = projects.map(proj => { return proj && proj.segments ? proj.segments.length : 0}).reduce((a, b) => a + b, 0)
-      
+
       const totalNotifications = projects.map(proj => { return proj && proj.notifications ? proj.notifications.length : 0}).reduce((a, b) => a + b, 0)
 
       const totalTemplates = projects.map(proj => { return proj && proj.templates ? proj.templates.length : 0}).reduce((a, b) => a + b, 0)
-      
+
       const totalEmailsImported = projects.map(proj => { return proj && proj.emailsImported }).reduce((a, b) => a + b, 0)
 
       const totalCampaigns = projects.map(proj => { return proj && proj.campaigns ? proj.campaigns.length : 0}).reduce((a, b) => a + b, 0)
-      
+
       const projectsWithEmails = projects.filter(proj => proj.emailsImported);
+
+
+      // Segments by App is Table Data structured as follows (sorted most to least segments):
+      //  [
+      //    {
+      //      subHeading: {
+      //        appName: <app name>,
+      //        orgContact: <org contact>,
+      //        totalUsers: <total users>,
+      //        numSegments: <number of segments>
+      //      },
+      //      segments: [
+      //        {
+      //          segmentName: <segment Name>,
+      //          userCount: <user count>
+      //        }
+      //      ]
+      //    }, ...
+      // ]
+      //
+      //
+      // Build a lookup of org contact to org id:
+      //
+      const orgContactLookup = {}
+      for (const user of users.orgs) {
+        orgContactLookup[user.sid.org_id] = user.email
+      }
+      //
+      // Sort the apps / projects by number of segments:
+      //
+      projects.sort((a, b) => {
+        return b.segments.length - a.segments.length
+      })
+      //
+      // Build the Table Data
+      //
+      this.segmentByAppTableData = []
+      for (const app of projects) {
+        const segmentTableData = {
+          subHeading: {
+            appName: app.name,
+            orgContact: orgContactLookup[app.org_id],
+            totalUsers: app.totalUsers,
+            numSegments: app.segments.length
+          },
+          segments: []
+        }
+        for (const segment of app.segments) {
+          segmentTableData.segments.push({
+            segmentName: segment.name,
+            userCount: segment.userCount
+          })
+        }
+        segmentTableData.segments.sort((a, b) => {
+          return b.userCount - a.userCount
+        })
+        this.segmentByAppTableData.push(segmentTableData)
+      }
+
 
       this.setState({
         totalOrgs: users.count ? users.count : 0,
@@ -151,6 +213,54 @@ export default class App extends React.Component {
     }
   };
 
+  getSegmentsByApplicationTable() {
+    const tableData = []
+    let key = 0
+    for (const appSegmentData of this.segmentByAppTableData) {
+      tableData.push(
+        <tr key={key++}>
+          <td>{appSegmentData.subHeading.appName}</td>
+          <td>{appSegmentData.subHeading.orgContact}</td>
+          <td>{appSegmentData.subHeading.totalUsers}</td>
+          <td>{appSegmentData.subHeading.numSegments}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      )
+
+      for (const segmentData of appSegmentData.segments) {
+        tableData.push(
+          <tr key={key++}>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>{segmentData.segmentName}</td>
+            <td>{segmentData.userCount}</td>
+          </tr>
+        )
+      }
+    }
+
+    return (
+      <table className="table">
+        <thead>
+          <tr key={key++}>
+            <th>App Name</th>
+            <th>Org Contact</th>
+            <th># Users</th>
+            <th># Segments</th>
+            <th>Segment Name</th>
+            <th>User Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tableData}
+        </tbody>
+      </table>
+    )
+  }
+
   renderLoading() {
     return <div className="loading-page">Loading...</div>;
   }
@@ -164,7 +274,7 @@ export default class App extends React.Component {
             <CardTitle>SimpleID Dashboard</CardTitle>
             <CardSubtitle className="mb-2 text-muted">Sign In</CardSubtitle>
             <Form onSubmit={this.handleSignIn}>
-              <FormGroup controlId="formBasicEmail">
+              <FormGroup>
                 <label>Username</label>
                 <FormInput
                   onChange={(e) => this.setState({ username: e.target.value })}
@@ -173,7 +283,7 @@ export default class App extends React.Component {
                 />
               </FormGroup>
 
-              <FormGroup controlId="formBasicPassword">
+              <FormGroup>
                 <label>Password</label>
                 <FormInput
                   onChange={(e) => this.setState({ password: e.target.value })}
@@ -199,6 +309,7 @@ export default class App extends React.Component {
       showNotification,
       showUsersByApp,
       showProjectsWithEmails,
+      showSegmentsByApp,
       totalEndUsers,
       totalSegments,
       totalNotifications,
@@ -280,7 +391,6 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Total Accounts</CardTitle>
-                    <p>
                       <h3>
                         <button
                           onClick={() => this.setState({ show: true })}
@@ -289,7 +399,6 @@ export default class App extends React.Component {
                           {totalOrgs}
                         </button>
                       </h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -299,9 +408,7 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Total Projects Created</CardTitle>
-                    <p>
                       <h3>{projects ? projects.length : 0}</h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -311,7 +418,6 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Total End Users</CardTitle>
-                    <p>
                       <h3>
                         <button
                           onClick={() =>
@@ -322,7 +428,6 @@ export default class App extends React.Component {
                           {totalEndUsers}
                         </button>
                       </h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -332,9 +437,13 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Segments Created</CardTitle>
-                    <p>
-                      <h3>{totalSegments}</h3>
-                    </p>
+                      <h3>
+                        <button
+                          onClick={() => this.setState({ showSegmentsByApp: true })}
+                          className="a-button">
+                          {totalSegments}
+                        </button>
+                      </h3>
                   </CardBody>
                 </Card>
               </div>
@@ -344,9 +453,7 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Notifications Created</CardTitle>
-                    <p>
                       <h3>{totalNotifications}</h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -356,9 +463,7 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Email Templates</CardTitle>
-                    <p>
                       <h3>{totalTemplates}</h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -368,9 +473,7 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Emails Imported</CardTitle>
-                    <p>
                       <h3>{totalEmailsImported}</h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -380,7 +483,6 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Projects With Emails</CardTitle>
-                    <p>
                       <h3>
                         <button
                           onClick={() =>
@@ -391,7 +493,6 @@ export default class App extends React.Component {
                           {projectsWithEmails.length}
                         </button>
                       </h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -401,9 +502,7 @@ export default class App extends React.Component {
                 <Card small={true}>
                   <CardBody>
                     <CardTitle>Campaigns Sents</CardTitle>
-                    <p>
                       <h3>{totalCampaigns}</h3>
-                    </p>
                   </CardBody>
                 </Card>
               </div>
@@ -462,7 +561,7 @@ export default class App extends React.Component {
                 <tbody>
                   {projects.map((proj) => {
                     return (
-                      <tr key={proj.id}>
+                      <tr key={proj.project_id}>
                         <td>{proj.name}</td>
                         <td>{proj.totalUsers}</td>
                       </tr>
@@ -497,7 +596,7 @@ export default class App extends React.Component {
                 <tbody>
                   {projectsWithEmails.map((proj) => {
                     return (
-                      <tr key={proj.id}>
+                      <tr key={proj.project_id}>
                         <td>{proj.name}</td>
                         <td>{proj.emailsImported}</td>
                       </tr>
@@ -511,6 +610,22 @@ export default class App extends React.Component {
                 variant="primary"
                 onClick={() => this.setState({ showProjectsWithEmails: false })}
               >
+                Done
+              </Button>
+            </ModalFooter>
+          </Modal>
+
+          <Modal
+            open={showSegmentsByApp}
+            toggle={() => this.setState({ showSegmentsByApp: false })}>
+            <ModalHeader>Segments By Application</ModalHeader>
+            <ModalBody>
+              {this.getSegmentsByApplicationTable()}
+            </ModalBody>
+            <ModalFooter>
+              <Button
+                variant="primary"
+                onClick={() => this.setState({ showSegmentsByApp: false })}>
                 Done
               </Button>
             </ModalFooter>
