@@ -54,3 +54,12 @@
   max-width: 45%!important;
   margin: auto!important;
 }
+
+.modal-xl {
+  min-width: 90%!important;
+}
+
+.modal-body {
+  overflow: scroll!important
+}
+

@@ -616,6 +616,7 @@ export default class App extends React.Component {
           </Modal>
 
           <Modal
+            size='xl'
             open={showSegmentsByApp}
             toggle={() => this.setState({ showSegmentsByApp: false })}>
             <ModalHeader>Segments By Application</ModalHeader>
